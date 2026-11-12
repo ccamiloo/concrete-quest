@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2A2C2E">
+<title>Concrete Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,800;125,900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- jsQR: lee códigos QR desde la cámara dentro de la página (así nunca se sale del navegador del grupo) -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js" defer></script>
+<style>
+  /* ---------- Tokens ---------- */
+  :root {
+    --concreto: #2A2C2E;       /* fondo: concreto mojado */
+    --concreto-hondo: #222426; /* campos de texto, hundidos en la losa */
+    --panel: #34373A;          /* tableros de formaleta */
+    --medio: #45484B;
+    --linea: #5C6064;
+    --claro: #B4B6B1;          /* texto secundario: concreto seco */
+    --blanco: #F3F2EE;
+    --amarillo: #FFC20E;       /* amarillo de seguridad */
+    --amarillo-sombra: #9A7300;
+    --negro: #000;
+    --error: #FF8A65;
+
+    --display: "Archivo", "Arial Black", system-ui, sans-serif;
+    --texto: "Atkinson Hyperlegible", system-ui, sans-serif;
+
+    --cinta: repeating-linear-gradient(-45deg, var(--amarillo) 0 16px, var(--negro) 16px 32px);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--concreto);
+    /* Textura de concreto: ruido fino (pasta de cemento) generado con un filtro SVG, sin imágenes externas */
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+    color: var(--blanco);
+    font: 400 1.0625rem/1.55 var(--texto);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Estructura ---------- */
+  .tape { height: 10px; background: var(--cinta); }
+  main {
+    width: 100%;
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 1.25rem 16px 2rem;
+    min-height: calc(100dvh - 10px - 3.5rem);
+  }
+  .screen { animation: entra .35s ease-out both; }
+  @keyframes entra { from { opacity: 0; transform: translateY(8px); } }
+
+  footer {
+    text-align: center;
+    color: var(--claro);
+    font-size: .8125rem;
+    padding: 1rem 16px 1.5rem;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  h1, h2 { font-family: var(--display); font-weight: 900; font-stretch: 125%; margin: 0; line-height: 1.02; letter-spacing: -.01em; }
+  h1 { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
+  h2 { font-size: 1.3rem; font-stretch: 112%; font-weight: 800; }
+  p { margin: 0 0 1rem; max-width: 62ch; }
+  .muted { color: var(--claro); }
+
+  /* ---------- Botones ---------- */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    width: 100%;
+    min-height: 3.6rem;
+    padding: .9rem 1.2rem;
+    border: 0; border-radius: 6px;
+    font: 800 1.05rem/1.1 var(--display); font-stretch: 112%;
+    letter-spacing: .02em;
+    text-align: center;
+    cursor: pointer;
+    background: var(--amarillo); color: var(--negro);
+    box-shadow: 0 5px 0 var(--amarillo-sombra);
+    transition: transform .08s, box-shadow .08s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--amarillo-sombra); }
+  .btn svg { width: 1.35rem; height: 1.35rem; flex: none; }
+  .btn-sec {
+    background: transparent; color: var(--blanco);
+    box-shadow: inset 0 0 0 2px var(--linea);
+  }
+  .btn-sec:active { transform: none; box-shadow: inset 0 0 0 2px var(--claro); }
+  :focus-visible { outline: 3px solid var(--amarillo); outline-offset: 3px; }
+  .btn:focus-visible { outline-color: var(--blanco); }
+
+  /* ---------- Inicio ---------- */
+  .hero { position: relative; padding: 2.2rem 0 3.4rem; margin-bottom: 1.4rem; }
+  .hero .bar {
+    position: absolute; left: -40px; right: -40px; height: 26px;
+    background: var(--cinta);
+    box-shadow: 0 3px 0 rgba(0,0,0,.35);
+  }
+  .hero .bar.a { top: .2rem; transform: rotate(-4deg); }
+  .hero .bar.b { bottom: 0; transform: rotate(2.5deg); opacity: .9; }
+  .hero-wrap { position: relative; overflow: hidden; margin: 0 -16px; padding: 0 16px; }
+  .wordmark {
+    position: relative;
+    margin: 1.4rem 0 .9rem;
+    font-family: var(--display); font-weight: 900; font-stretch: 125%;
+    /* El ancho del contenedor manda: 12.5vw cabe en celular; 4.3rem es el tope en pantallas grandes */
+    font-size: clamp(2.2rem, 12.5vw, 4.3rem);
+    line-height: .86;
+    letter-spacing: -.02em;
+    text-transform: uppercase;
+    /* Letras "vaciadas" en concreto: el relleno usa la misma textura de ruido, aclarada */
+    color: var(--blanco);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .25 0 0 0 0 .25 0 0 0 0 .25 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      linear-gradient(180deg, #F3F2EE, #C9CBC6);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 0 #17181A);
+  }
+  .wordmark span { display: block; }
+  .wordmark span + span { margin-left: .5em; }
+  .tagline {
+    font: italic 400 1.35rem/1.3 var(--texto);
+    color: var(--amarillo);
+    margin: 0;
+  }
+  .welcome { font-size: 1.125rem; margin: 0 0 1.8rem; }
+
+  /* ---------- Elección de grupo ---------- */
+  .lead { margin: .9rem 0 1.4rem; }
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: .8rem;
+    margin-bottom: 1.4rem;
+  }
+  .grupo {
+    position: relative;
+    aspect-ratio: 1 / .9;
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
+    padding: .9rem 1rem;
+    background: var(--panel);
+    color: var(--blanco);
+    border: 2px solid var(--linea);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .grupo b {
+    font: 900 clamp(3.4rem, 18vw, 4.6rem)/.85 var(--display); font-stretch: 125%;
+  }
+  .grupo span { font-weight: 700; margin-top: .3rem; color: var(--claro); }
+  .grupo[aria-pressed="true"] { background: var(--amarillo); border-color: var(--amarillo); color: var(--negro); }
+  .grupo[aria-pressed="true"] span { color: var(--negro); }
+  .confirm {
+    border-left: 6px solid var(--amarillo);
+    background: var(--panel);
+    padding: 1rem 1rem 1.1rem;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 1rem;
+    animation: entra .25s ease-out both;
+  }
+  .confirm p { margin-bottom: .9rem; }
+  .stack { display: grid; gap: .9rem; }
+
+  /* ---------- Barra de estado y progreso ---------- */
+  .status {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    font-weight: 700;
+    margin-bottom: .7rem;
+  }
+  .chip {
+    background: var(--amarillo); color: var(--negro);
+    padding: .2rem .6rem; border-radius: 4px;
+    font: 800 .95rem/1.4 var(--display); font-stretch: 112%;
+  }
+  .progress {
+    display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 5px;
+    align-items: stretch;
+    margin-bottom: 1.6rem;
+  }
+  /* Cada estación es un bloque de mampostería; se "llena" de amarillo al superarla */
+  .blk {
+    height: 2.4rem;
+    border-radius: 3px;
+    background: var(--medio);
+    position: relative;
+    overflow: hidden;
+    display: grid; place-items: center;
+    font: 800 .95rem var(--display);
+    color: var(--claro);
+  }
+  .blk::before {
+    content: ""; position: absolute; inset: 0;
+    background: var(--amarillo);
+    transform: scaleY(0); transform-origin: bottom;
+    transition: transform .6s cubic-bezier(.3,.7,.3,1);
+  }
+  .blk i { position: relative; font-style: normal; }
+  .blk.done::before { transform: scaleY(1); }
+  .blk.done { color: var(--negro); }
+  .blk.now { box-shadow: inset 0 0 0 2px var(--amarillo); color: var(--blanco); }
+  .blk.pour::before { transition-delay: .25s; }
+  .flag {
+    width: 2.6rem; display: grid; place-items: center;
+    border-radius: 3px;
+    color: var(--claro);
+    box-shadow: inset 0 0 0 2px var(--medio);
+  }
+  .flag svg { width: 1.3rem; height: 1.3rem; }
+  .flag.on { color: var(--amarillo); box-shadow: inset 0 0 0 2px var(--amarillo); }
+
+  /* ---------- Ubicación ---------- */
+  .loc { display: flex; gap: .7rem; align-items: flex-start; margin-bottom: 1.3rem; }
+  .loc svg { width: 2rem; height: 2rem; flex: none; color: var(--amarillo); margin-top: .1rem; }
+
+  /* Tablero de formaleta: panel con los 4 huecos de los pasadores en las esquinas */
+  .board {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--linea);
+    border-radius: 4px;
+    padding: 1.4rem 1.3rem 1.3rem;
+    margin-bottom: 1.3rem;
+    background-image:
+      radial-gradient(circle at 12px 12px, var(--concreto-hondo) 3.5px, transparent 4.5px),
+      radial-gradient(circle at calc(100% - 12px) 12px, var(--concreto-hondo) 3.5px, transparent 4.5px),
+      radial-gradient(circle at 12px calc(100% - 12px), var(--concreto-hondo) 3.5px, transparent 4.5px),
+      radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), var(--concreto-hondo) 3.5px, transparent 4.5px);
+  }
+  .board h2 { margin-bottom: .7rem; color: var(--amarillo); }
+  .riddle { font-size: 1.2rem; line-height: 1.55; margin: 0; }
+  .riddle::before { content: "“"; color: var(--amarillo); font: 900 1.5em/0 var(--display); vertical-align: -.35em; margin-right: .08em; }
+  .riddle::after { content: "”"; color: var(--amarillo); font: 900 1.5em/0 var(--display); vertical-align: -.35em; margin-left: .05em; }
+
+  form { display: grid; gap: .9rem; }
+  label.field { font-weight: 700; display: grid; gap: .4rem; }
+  input[type=text] {
+    width: 100%;
+    min-height: 3.4rem;
+    padding: .8rem 1rem;
+    font: 400 1.2rem var(--texto);
+    color: var(--blanco);
+    background: var(--concreto-hondo);
+    border: 2px solid var(--linea);
+    border-radius: 6px;
+  }
+  input[type=text]:focus { outline: none; border-color: var(--amarillo); }
+  input.bad { border-color: var(--error); animation: shake .4s; }
+  @keyframes shake { 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+  .msg { min-height: 1.6rem; font-weight: 700; margin: 0; }
+  .msg.bad { color: var(--error); }
+
+  /* ---------- Overlay de respuesta correcta ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 20;
+    display: grid; place-items: center;
+    background: rgba(26,27,29,.92);
+    cursor: pointer;
+    animation: fade .2s both;
+  }
+  @keyframes fade { from { opacity: 0; } }
+  .stamp {
+    font: 900 clamp(2.4rem, 13vw, 4rem)/1 var(--display); font-stretch: 125%;
+    color: var(--amarillo);
+    border: 6px solid var(--amarillo);
+    border-radius: 8px;
+    padding: .4rem 1rem .5rem;
+    transform: rotate(-6deg);
+    text-transform: uppercase;
+    animation: sello .45s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  @keyframes sello { from { transform: rotate(-14deg) scale(2.4); opacity: 0; } }
+
+  /* ---------- Destino siguiente ---------- */
+  .ok { color: var(--amarillo); font-weight: 700; margin-bottom: 1.2rem; }
+  .dest {
+    background: var(--panel);
+    border: 2px dashed var(--linea);
+    border-radius: 6px;
+    padding: 1.2rem;
+    margin: 0 0 1.4rem;
+  }
+  .dest .loc { margin: 0 0 .4rem; }
+  .dest small { color: var(--claro); font-size: .95rem; }
+
+  /* ---------- Regreso y final ---------- */
+  .big-icon { width: 5rem; height: 5rem; color: var(--amarillo); margin: .6rem 0 1.2rem; }
+  .return h1 { margin-bottom: 1.1rem; }
+  .final { text-align: center; padding-top: .6rem; }
+  .final p { margin-left: auto; margin-right: auto; }
+  .trophy-wrap { position: relative; width: 9rem; margin: .6rem auto 1.4rem; }
+  .trophy-wrap svg { width: 9rem; height: 9rem; color: var(--amarillo); }
+  .trophy-wrap .stamp {
+    position: absolute; left: 50%; bottom: -.4rem;
+    font-size: .95rem; font-stretch: 112%; white-space: nowrap;
+    border-width: 3px; padding: .25rem .55rem;
+    background: var(--concreto);
+    transform: translateX(-50%) rotate(-7deg);
+    animation: sello2 .5s .5s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  @keyframes sello2 { from { transform: translateX(-50%) rotate(-16deg) scale(2.2); opacity: 0; } }
+  .final h1 { font-size: clamp(2rem, 10vw, 3.4rem); margin-bottom: .9rem; }
+  .ruta { display: inline-block; margin: .3rem 0 1.2rem; }
+  .checks { list-style: none; padding: 0; margin: 0 0 1.4rem; text-align: left; display: grid; gap: .5rem; }
+  .checks li {
+    display: flex; align-items: center; gap: .75rem;
+    background: var(--panel); border-radius: 4px; padding: .7rem .9rem;
+  }
+  .checks svg { width: 1.4rem; height: 1.4rem; flex: none; color: var(--amarillo); }
+  .checks span { color: var(--claro); margin-left: auto; font-size: .9rem; text-align: right; }
+  #confeti { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+
+  /* ---------- Aviso (QR equivocado, cámara sin permiso, etc.) ---------- */
+  .notice {
+    display: flex; gap: .7rem; align-items: flex-start;
+    background: var(--panel);
+    border-left: 6px solid var(--error);
+    border-radius: 0 6px 6px 0;
+    padding: .85rem 1rem;
+    margin-bottom: 1.2rem;
+    font-weight: 700;
+    animation: shake .4s;
+  }
+  .notice.info { border-left-color: var(--amarillo); animation: none; }
+  .notice p { margin: 0; }
+
+  /* ---------- Código manual (respaldo si la cámara falla) ---------- */
+  .manual { margin-top: 1.1rem; }
+  .manual summary {
+    cursor: pointer; list-style: none;
+    color: var(--claro); font-weight: 700;
+    text-decoration: underline; text-underline-offset: 4px;
+    padding: .5rem 0;
+    width: fit-content;
+  }
+  .manual summary::-webkit-details-marker { display: none; }
+  .manual form { margin-top: .6rem; }
+  .manual input[type=text] { text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+
+  /* ---------- Escáner ---------- */
+  .scan {
+    position: fixed; inset: 0; z-index: 25;
+    background: var(--negro);
+    display: grid; grid-template-rows: 1fr auto;
+    animation: fade .2s both;
+  }
+  .scan video { width: 100%; height: 100%; object-fit: cover; }
+  .scan .visor {
+    position: absolute; left: 50%; top: 42%;
+    width: min(68vw, 300px); aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    /* La sombra gigante oscurece todo lo que está fuera del visor */
+    box-shadow: 0 0 0 100vmax rgba(0,0,0,.55);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+  /* Esquinas amarillas del visor, como marcas de replanteo */
+  .scan .visor::before {
+    content: ""; position: absolute; inset: -4px;
+    border: 5px solid var(--amarillo); border-radius: 12px;
+    -webkit-mask: linear-gradient(#000 0 0) top left / 28% 28% no-repeat, linear-gradient(#000 0 0) top right / 28% 28% no-repeat,
+                  linear-gradient(#000 0 0) bottom left / 28% 28% no-repeat, linear-gradient(#000 0 0) bottom right / 28% 28% no-repeat;
+            mask: linear-gradient(#000 0 0) top left / 28% 28% no-repeat, linear-gradient(#000 0 0) top right / 28% 28% no-repeat,
+                  linear-gradient(#000 0 0) bottom left / 28% 28% no-repeat, linear-gradient(#000 0 0) bottom right / 28% 28% no-repeat;
+  }
+  .scan video { min-height: 0; }
+  .scan .pie {
+    position: relative; z-index: 1; /* por encima de la sombra del visor */
+    background: var(--concreto);
+    padding: 1rem 16px calc(1rem + env(safe-area-inset-bottom));
+    display: grid; gap: .8rem;
+    text-align: center;
+  }
+  .scan .pie p { margin: 0 auto; font-weight: 700; }
+
+  /* ---------- Diálogo de organizador ---------- */
+  dialog {
+    width: min(26rem, calc(100% - 32px));
+    background: var(--panel); color: var(--blanco);
+    border: 2px solid var(--linea); border-radius: 8px;
+    padding: 1.3rem;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.7); }
+  dialog h2 { margin-bottom: .8rem; }
+
+  @media (min-width: 640px) {
+    main { padding-top: 2.5rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="tape" aria-hidden="true"></div>
+<main id="app" aria-live="polite"></main>
+<footer><span id="org">Semana del Concreto</span></footer>
+
+<dialog id="dlg">
+  <h2>Reinicio de organizador</h2>
+  <p class="muted">Borra el progreso de este celular para empezar de cero. Solo para organizadores.</p>
+  <form id="dlgForm">
+    <label class="field">Código
+      <input type="text" id="dlgCode" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </label>
+    <p class="msg bad" id="dlgMsg"></p>
+    <div class="stack">
+      <button class="btn" type="submit">Borrar progreso</button>
+      <button class="btn btn-sec" type="button" id="dlgClose">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/*
+ * Núcleo compartido de Concrete Quest.
+ * Lo usan dos lados: build.js (Node, para cifrar) y index.html (navegador, para descifrar).
+ * build.js copia este archivo tal cual dentro del HTML, así ambos lados usan exactamente
+ * el mismo código y nunca se desincronizan.
+ */
+var CQ = (function () {
+  // Palabras que no aportan al significado de la respuesta ("el", "la", "de"...).
+  // Se eliminan para que "la ventana" y "ventana" cuenten igual.
+  var STOP = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'es', 'son', 'soy', 'y', 'o', 'al'];
+
+  // Deja una respuesta en forma canónica:
+  // minúsculas, sin tildes, sin signos, sin palabras vacías, singular aproximado y sin espacios.
+  // Ej: "  Las VENTANAS abiertas!! " -> "ventanaabierta"
+  function normalize(s) {
+    var t = String(s || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes (á -> a, ñ -> n)
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+    if (!t) return '';
+    return t.split(' ')
+      .filter(function (w) { return STOP.indexOf(w) === -1; })
+      // Singular aproximado: quitar la "s" final de palabras largas.
+      // No es gramática perfecta, pero se aplica igual a respuesta y variantes, así que coinciden.
+      .map(function (w) { return w.length > 3 && w.charAt(w.length - 1) === 's' ? w.slice(0, -1) : w; })
+      .join('');
+  }
+
+  // xmur3: convierte un texto en una secuencia de semillas de 32 bits.
+  function xmur3(str) {
+    for (var i = 0, h = 1779033703 ^ str.length; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+
+  // sfc32: generador pseudoaleatorio con estado de 128 bits (4 semillas de xmur3).
+  // Con 128 bits es imposible probar todas las claves por fuerza bruta.
+  function sfc32(a, b, c, d) {
+    return function () {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      var t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return t >>> 0;
+    };
+  }
+
+  // Cifrado XOR con un flujo de bytes derivado de la clave.
+  // Cifrar y descifrar son la misma operación (XOR dos veces devuelve el original).
+  function xorBytes(bytes, key) {
+    var seed = xmur3(key);
+    var rnd = sfc32(seed(), seed(), seed(), seed());
+    for (var k = 0; k < 16; k++) rnd(); // descartar las primeras salidas, que se parecen más a la semilla
+    var out = new Uint8Array(bytes.length);
+    for (var i = 0; i < bytes.length; i++) out[i] = bytes[i] ^ (rnd() & 255);
+    return out;
+  }
+
+  // Prefijo que permite saber si un descifrado fue correcto (clave correcta => texto empieza así).
+  var MAGIC = 'CQ1:';
+
+  // Clave de una estación: respuesta normalizada + ruta + estación.
+  // Incluir ruta y estación hace que la misma palabra no abra estaciones de otra ruta.
+  function keyFor(answerNorm, route, station) {
+    return answerNorm + '|r' + route + '|e' + station;
+  }
+
+  // Alfabeto de los códigos QR: sin caracteres que se confunden al escribirlos a mano
+  // (no hay O/0, I/1, B/8, S/5, Z/2, G/6).
+  var ALFABETO = 'ACDEFHJKMNPQRTUVWXY34679';
+
+  // Limpia un código escrito a mano o leído de un QR: "k7qm-2pxa " -> "K7QM2PXA".
+  function cleanToken(s) {
+    return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  // Extrae el código de lo que haya leído la cámara: puede ser la URL completa
+  // (https://sitio/#e=K7QM2PXA) o solo el código.
+  function tokenFromText(txt) {
+    var m = String(txt || '').match(/[#?&]e=([A-Za-z0-9-]+)/);
+    return cleanToken(m ? m[1] : txt);
+  }
+
+  // Clave del QR de una estación. El QR del salón usa ruta 0, estación 9 (no choca con ninguna ruta real).
+  function qrKey(token, route, station) {
+    return 'qr|' + cleanToken(token) + '|r' + route + '|e' + station;
+  }
+
+  return {
+    normalize: normalize, xorBytes: xorBytes, keyFor: keyFor, MAGIC: MAGIC,
+    ALFABETO: ALFABETO, cleanToken: cleanToken, tokenFromText: tokenFromText, qrKey: qrKey
+  };
+})();
+
+if (typeof module !== 'undefined') module.exports = CQ;
+
+</script>
+<script>
+var DATA = {"rutas":{"1":{"primera":"Biblioteca","qr":["n7iDCrI4oW2jptcxlxGMupyo7LBJ+tSINfJJGtn5PzRFXJcJPyv8m1BZXRlqwjdKtmtm1n9zoMxigZCtFAZOlRWAAyHIuEC0SWoSU34GhtW3+zBMPxXY/fVDfWqGRe3Wr3VLAvNxa6TJ2OJ80yg5pPM6rFC8hEtbDfz+sy6MkYvCPoLwjzRrOlplC4o+w2pxx0+pX4JDCesoSF9EyY90yw==","ley7Bnl0BtFamM3eGbpleOrURGQsFlhXRXryuhl1xznkXjx5iV36oyom/OHSqljXmkveCLXWB2Q4Jq8m4Pg3njiK/tfa+jVNqJs/bjbvvyAICax5usqs8E69+e+KQWWIDihZQwrt1GPX40EwKdxX8tZtJ+u1F4b/rIZQHjfSrd+bsQXq7zRpSq+H0RNQb9LR8picYlBmXDExri91O/dQZNX6k+ZVis9AW0BxfDYWDIUoBgGH3y1ZJOzXNA==","Jv9sCz4BWx0btG0uzOAWGuVCu7sBflNIfEfkFo+5JOnlUWeedekCQC+XdWao+6QagX+zh5HcLFUUdDFfpzpllq9GSNQLbBh2FTR0SEidOBC4hXgT91ExDoQ5JgAR4L5JQfjwU1490PYPWm5nlIZejJeLacPb/Zwt5cWs9ZOjyoaEbNDNEd04L19ikvR7JtiPcmn0SefsQxrvj+Pyhf83sRdYsDbuI6mb","whUPs+2FdJgmAUJz1ZwDlDi4HBBYf2luLNMw/aj+9zO1p89MajXl5n7gw/XKapTcFabHNoIvViH9P0057QxLL+vv2j8fR1PhyyrRXQWhd1bx0aYiMOnSEKmq1PRs+CnY9NlWPivrZgFZkZbL6+1eUN3aqbtn0YdWReTe6brdbT4/LlpHG1AeJZ7oIKZV02k4etyU3aveh1yyaNZk0YTJAUKSLpdTzTSP5Zv77e9FDxZpnJLI0doSAeqVZHLZvtiKHbAl3B5Sl+kWvcR5LeijpMclTYZ0KXFqONOSG2IQO4GVoAFRwL6BNX+2E47gvFPFufxDsZZdO9UMOgnWE8ql1v00u+gBvtebWBaZ+5Hxj4va86JsFcZfOv0F8fCSj23LJf1CmWb2BQ=="],"locks":[["2NRoxy0Z7oIHIcuPVSL2hdAR9qdq6GutMwiiv7LGgTUePCw/IZanVqB6fqKwglLexofsEcJMzK1dckruY8WLsTzCXm2YuBY=","vhT+hrUKv8CBdEIQw55JrkZHaaBjU0nSaIrEV++S7+SfitBlMJ8sOQNZXCwjGtFO7ZycKUxjUdvtxuGVnjjOuAsTcSzCGcU=","BHBXNbUMYm5MO0Nqg0MMY3Dtzdw4QQ3hfIn3YIibm8ZhWwpL9ws4+CwGt0fJYXeuGSjbF7nPGBny0BCzSBhLU8mJujjwsjc=","ILmShfPB9mpXtnVEKoXMvpkmp72DqSxE0abdFW3lVokn7B+TbVS7rcSyy1kw04bs0s0pB7b5FwBW9H+iOJlC6xRFJ92MrJ8=","r1rguU1pu9ZaKzcpmS+chEu3Fz42DTKFscvwHj5eR4fVVuugVZkNpLKgjmmWeYHrkcm9YgsKM3Vek/RXxabfe72stV3vRKE="],["03JxgzI3h5h6oSBjBFjB8aOYrB1B9qiFNP8u5xV07irrUugKwJT0scpbBbwI/9SxamzO3lXYePbU2Vp1cm8RswQhV1s+u/FfLkSQ","bqU/yTTAghIOpFdBcu83XDIYn+EHuj8u07dh7vMmqSEM7vomt5CYWyQoHI5nbxp1PzW4z2XT+FwfxIfcL/+Yy8ebotDiPb2TnlNa","KgXHCdL6MWDsEaIl3Y2B1fAfhHKal5IgBtuE93wOXpOe/N7ipH+ENSxVaXS6YfZsJqQR8jcut/3/JqPSmbJSFBg3SpfIp5zd7DoC"],["jC7YjiA48VdeECYregTqtVjzYonkwD+Bq1qfzr4KYtrI/LCo8h1eJsVBg2AlPH39Phb9h+cVuX11b3Xg1yAYkg==","TmegdGINzeg9ylCLUb7p3wPRdzS+1nGuaa7ZLnd1hhWM2UMyT7XogTMUWsk9GvzK6AR7XKPAu+DfxoQfWKVaGA==","R1nE5oK3LIANJBXfg0ejIs/KFg6zzqpAn8O5Gv7gH+d4OijGk9xZyUwWekeBrlB7FdjqiS45cvq1dpHwDM2V/Q=="],["4sUqqc0DE9X24Cv1sio0vBxcNXLwy28CEsdTw33r/ZyR8AKp4XAPt0dXq1sg","Dhew/BMw8rha0u/x2zBnKDZGecRCLn0KPek1NoFlkWw8AAr4j9pxvGOLn1XC","xp+HTZanY8OU3QWgtZZPcIwUw7Y5oRWlVppi+rm0VYCzBaP6yNpL4CdHoT3R","oF+MfpAEGtfa7nWcJEbXJUKt8/4FpZCzxA3Js7e2lN67sbU0Cz5QFsmC2JSh","aCefCWDS0OkDdThgMnESAfFyILauICJGgPnGpQL2Evlw2cWNcldYl5bz5fQv","d/9POBn42SlQPSRpi5WEPLhSaqGVGS4y8MB4q2Z09IrSPSqlZT+1HCuikEUc","A4ko+vJSVFpXQg/DbaIVjNA640oQosH5AnGoYUo8FLd9O1pQAbTT+nmAR2rh","xsv94frkBqL7Bu1gyXF/cxqjQFtud/941bpshk9URHZ+2a0C1LZmZy7y7vCw"]]},"2":{"primera":"Café du Nord","qr":["WfhO+jSOXugGzqN4mSoXublFuj47KUfgSTu7y0+Q1QDkT+b9pb5CTth2bB4knucJtuSuqRgsmCZJNHc0Lgk+sX7f7EVNH61+iATy1v4+AS0EmrlLr9LgJY+C9ksKdqEvFW3dYdjYTDS/SO7sc8DrjagFqGiUt+PJODRZXfjhFkcd/YnYs/SATD3Kyq+ehceCiLYmtsbeVkt9R629Hs+yHnpT5gE8/yRO+vQgwIXv5G/rB5lbg0mUlfL0NQX/z7+QEX23nRvAtPHPM6HA6R01pl3ICSLzzQSEnmB+F4kpeIBxmtnjfqUejf2xMnoRmbQ+aVYLD27YfpoUWiOJtGaf4xKU8f+k","uuLHAi1oRyAirZq8x1rXEHpxHyyIFVEQ49yzflEOHsyUolfiINucleerPhWNGNwHGKDxrywt+AHmhvvhfMk1lO0MGicnZZ3CZrpeUmaLqv5aSsuAJ8rYcLBj7IVEZ774FtyIVGjaTmyqD25hkBrcFHy0v+SKWwqopeY5ZTnOLT98YKjRXlS1L4yrkMkfllNbDAcgKon8Lw==","3EH0sm000FxmEAxaPAw6tJbflf2BvKtIIpU4HW5gNetT88vGxzRKTFDhO9Ty/WdsNIFMCvElpUyVLvaHEVshRSUsP3AfFqvZlSfOp1eGQVSBkWE1cCEXTxatxyr4jDnHtnatb6jpkiHdtQBqcesYN6bhSv1khjoypZA3YcBAMSAzAQa3ni9r8JLBUc48yNJ/XdhnjFi5g8YZtg==","4vyudhv5sA/7l7LjiPmWI1QagoJ8A+bJoID1POzIJ+J2UxcCYej/jOxHTrjAmNjzZwG0KJWepO7QRCePoXpjSLB/ZSnALO1rT7dfHe+lzJuqAzgSOoVXv82ciSQWbuBnQTa1LHyjvMy3YoS/5A=="],"locks":[["ZyEw6wNZ0yZrkVMBxhKo/mG18h+uoBdg2ko5SuNs4UmEG4oAXRqLR/3hIbC0luyNh095AcVL","7dpDWpdX0fQkZqyEmPwi/dIDEiWPq4t7RyvjWIVM5UT5ElJdJRluF1VQsSMywpGP4PpYKKjh","2PzpDZjv28yfNyiJX68vIPphAhQ/aZJT1yPidESVXW2kFq+9sJLEEmx5XfyLYqYr6OGB7jK5","Q69Y/6vNJOnS5kAi+ObbVVQgLuqZ7/ZFj+pY5kA3MOiX7Lv/Kx/RajmYhF9o3XWNO29eGC+0","fMolFu2qr/JtSKXorlF0/Rq9VJRnGHgySaZiSSKQ4qXts4TJR8n77ALzuVIj8PAmlRxM7FHz"],["LGBFZSHSe3gpb62xNleOve/e9ZjCF0g53ft7ipNFfMl/+E/sKBX+e1fQHNl2Fth+w2CJSYgP","+NMv5SLb6/DyusYGhlwHC7+FDB/Rzkl3dyWzisu422ACoG/v/kSlAnmrg78oPYIoshT1gYRo","U04qFSp/umTKvFHBlRgEHt/EKBAy4nZNCLKeNF5zT1bwPiNtiZmUHiVj4P2mCMNPAldJtDGi"],["UsPVwDb8t+nhpxi9J2MgfZwt/Y/Ip6bA3BvOpD8xQteANkkVvpFQ0zqj7caHnYoTgfEd4TxWt2/EG3MVOWLmFYa834K5ryM=","uvjqPd5Ome0JP592bRnuhbXij6GuIe/Hhv2XDZEb66+lHDxYotb55mW6rJk44Uysz8O6Ux48YS9nOPBLPePkD84ua63UvJI=","X/5DS9ww12GPbzOXTEQCsrkKD6c6xzl6QQwsIRUHG0oY4OuyfNYOmMQqJnR8thcntcSbxbejvzPS0Mg7lRjtCIO0KQmAi5E=","2stROkdUsRFqjFjygmkhq2pxVHyOQSLNfNHgdtCrmr1HXhaH4WRxfMvMw25GEvi+Ymt2HBmlqjGSKauCza6nrCHEMJuje/U="],["6Thq7meQMd/skTYLDFEHxibdluFfh7wibMeci7TfSDSGO80GtVU="]]},"3":{"primera":"Hot Dogs","qr":["L6Qblb1GGIN5M/2g/V4pwSAwxccsvyRtHIHvBOH5UMyzE94aLo3ZgqX/uWi/sexL62Bj7HURGVb7TgrNN1JPI7D0XLqLYTphlbdaL7urUCR3Hm5zaEKUItMRfdcodpgSv6obzBatFIEPkfVx8bbnSdtA8jzSP+nNYoby01acg+IeU5Vdvju/u523k0mzXq5Bj+F+HbbHvBzjv4d8/Qee3pdilIY7","Of6I0MJQRBj4W82tw6kSKNrKS6fFzLiWwdtdD0+vJxNdqmgHFRH4/NwGimKEiNN69Z+6HOGcTWFbge/8W29RUpcIxuzm2mMBoX/ZJ33wSM2VaC66zn3Q7gaRDBkCOxwjW3e8d5JagxnoY6+b14O9t5yhSUeE/oYQQ2g2SPXuHuN32b06qn77QWjFmbmFHoAaJvIMaDZjoLu/NM0zDzBKbsWHpWSN0k5XrStn85cfT7KC4aHD06wHNkYRk5MP6dyIDLCyh92JrrPrZRzY+IQ=","4X00cpxVIEHzqa3SziAAMDluVslDdgB1/6OuYjfJZtoYF6wtWGOX5eJaRrZQZzDLb4kJHuMCMfoYOvy0/Fef3k2ndmZVFULdIScMj5xprm4sdRZqOG2aDjVawDVrfLZvw9vAJD6HLIgn9MzZtPzvKFQ+T1xJ7fccNzlunrfv/vDUB1WHnUXvUbEWo69VZ4m7i0R99v/Tv6PhFOJ1rWf+5mDmhDCzbUFZr7tV/azxbIsnAJ88gijacfFsIM/GIsX3qcFj7sqVzbzrYn+70pe2NQ==","MJ/GMcvhut/2fD4yaB0LLCKGpPZC8PYd0Y+E2lPQK+kHvFv5i2lHI4zFV/G0/+5nZthWiRqzuGygsdxnObZsFr+ZEg8/eWmfYrnMV9xm9RHEq26pigUiBHnwJrXCqGIxa7XyeveiTgRvn1FrmOsL305mcdkQTagIYy9VVDOHLf7Df/S+udMtpSS87t1/uOGFR+BZzSOUhtwOxekR3mwrAXzq"],"locks":[["AXmIvUIjm4rTqvZVXm/YHRGn6qvII64I86Sv5qxByvAu8B73K7ePiZ7ifJQvBmw4zBnHN6ejpJzA","sMYrXF7O0b1P76qqyls46oHswLlEMlxmgRZJCPmBRyXivWYNsR+98ZnPXBr8VbYsHV49i3fI+a3t","kZ2FS/txSDSa1hrtooGaIhbz0ro1eLMxDbMz7xr4p6baz5L/QXAD+LSEr5JE1Qk78I+BOaxQRWZ7","QHGwcgRgAJZvyJZJP8Xnf4C4sfAp1urgyDrudfy4mu74DIQHEQKeUi+1YUvLN8xiA4pEaYaGEN8L","JiBUhkjqmZOaulf3RWTXVhilTGLOKPngyeVfuxvIWhn3t2u1qLlJPYS0n7G+HmHcqbE2Sh2/kAoe","u1wVZMZPnw7iAY+JEIYi6qJVWPK8CSZBNf7RLUtD+gsiC/vt9GRiylCMoWfr4n3d1vhoU6ncLbz9","/mrzSrqIr1roPMNlQhKPnMyHHflTy63nS7+7As9OmESx2FowU/rqHEUM1xV2wdMOo6M/G8KaBQdJ"],["3u3Kf8GfHKiyuT0UsBJfS4W28wziJZioh8W4IJZtmoDTkDc+YwGcx4HOxX6FySiT5Y3NEIvAKKDn/UFSara9aTrgjf+6","ANPLuXMqganbiA6tNek1mf32Zcxro5yVq4iWz4dW5Fv/oO44CZlsVPHnFdSNiQkoQYC6uF15y4FIuzZ78y2BssT/ArME","eMQGA+QpDKGqiNLiKp7g1oYM+S8Prp8aH6GAEAgestBWwq392GiLuSJGiyH86gNtqddOw2cesqj36APDFJk0y4QSHyL/","JhiFjoPOWSyyNamLgVK1HMhmBHRJzxHYMA8x8guZyF/AHQYnM3bRmzVapsIyBhLoyZH4AprklD7m7P72ZU+aZxuEcyEO"],["fYcpQlpMOkDsPh8ElIYsNDgP39DgLZCdQARGfpWEly4IbJxdKZ8g8Blv2bqdpYzbYk3lXUJr/0dzRp9A5tV8yQ==","8NGbq5OAat7ocCdfkWJuEUxq/mreq4Q4ctAx3eIF+0QtmcmJWmv8OR3zmJkeFng95fRAAaLWiODhc6qBhyCZWQ=="],["SHCRHRsvPiOhsRYNsf0RDtb/M/2jA6pnCEE2bGQ7J3k=","XF/xw/sxCb6GNdcaksY8xEpTm7nIkF/XblOMg0U+nVQ="]]},"4":{"primera":"Casablanca","qr":["xYIuOBL5r7h+F4Y9RQjJ680AJPn4cMSVvFWrZWS5WigE4gapsllQu5rsp/h19UcHCdeyQZHLune7lX2Wbq2nIWTuXFUm/8mQKvmFr6AtIlXdQ+Ex4/vO9goW7imrexpc/ahFJd0KSocOvEofj6bg9Y/bPg7HhqvbRtIhShXiI0jAWJLKQSGC0SwS7BMReeYDH4SJVQduOmg=","jGJrms7pxbxZ0zek0/pj9H5LMp11GQHULsXTx7QfaK7mrzEvBGJDKfS3l3FT9k9SIJAu3Gfs/K8crW3Oep0EMuJwqDIvKSNpYRkdQvLGMGnoySHmR0FWt8T8f8eJZWEHYWvZD0laI/xZTWHaAMghdI0poUzOs9edoWG2DrsBGeVDYSinWkMKw4I0oGqTnFmjWzDXMFKE9sQ91pj5MhqDqtCuBN5upXqGFMC2Nw==","HSqTIEQU/FRW6Kxdv+ZsHYLYOfEg4vtafRF3nJR9VZVq3pvCG9lZSuXKYrp09s5ucERIp3zPrj5arXgm8OysQPNIfwkPId+rwNC5rbTnosvZlzTaSilKElTDv9Gxkdee4gjssOsXQAQo4cOQdRyUIlrqEr8dvgjIBnZg6rtvtBlQ0WUeI6/+T6J3tj6LJsP4hivjWgA=","Y4SAVeV5M9Q0qMjzfBiYgKF5WwK5ontc9WkaSUtT/hRyyWrFTE8bA8VHXHdm0P1FR74+VFzSzHo7PBKpICYJuGjewQV/a/zJQ+/iGJS6PM0sDDXUiVSGAklJt6WY1EEldtz1Va4xLkmHnswCjjo2kxuuDteQ+KtPDPWJ+xvs/MzIqvYK2bTrbIIA4t+tEEuciktYdnK2gEsphFGC26Vz8UZu"],"locks":[["3fG4J4SeBH54kun/9VtvZphAG6DoSG7ZV2oc4JBHLC9997pfuS4lOxAoNqjQrrh0rqZhVxcEKRV3fTFZMAmkOaKAEGN/naRJGvDS","wcFUERXmTrjHe1oZ9j1/y+TXukZyXLv7URt9HOz0Muu82vW2WL07LJHMm0ViDCqO4HJvROZj3FahNCi+5TkIFvKXyU3cfvo1jVY/","+sqYrtbugKfcAOHj/1WmvJ2lpOhW2FyM4IiI1Y4lGDh4CjkbAS02Ev7vtEuDBbg9czfnw51yN9aLKGAi4zk+dvDax9Uls2dLa3Ki"],["XIDKn1tKYMcugmn2y5lmKi6KdCwN1/cteWNFFXl01XMW7qgDcJs6BMjhv44aygMomQIblyNppmjtSvbOdgJD32ka7A==","LDaHy6VxIVb8+FHQxBvvrXYcr7jaNpwEAb11dZ7bTjGAHag3XxgOeemVcZTiTZ3IHAQmn6k1m3AwBxaVIR6Ev4HhCw==","Y46xTSuFAA9wm9lZoUvSjnuVFONjOjq/+qpwU0KUkNK6IxWGaZIyZsfeVDADZKVJOO7vAj/2x+xVv+wHRPVVELbUnw==","jnA/ugbiIO8FxDtmc4vl42cWPDnfyE3XfuelbtrXssQ3nqTKrxD7d8VhKOdr5X2vPgfj81KUTgk43x3O6V/Z5xS0NQ==","Ngh56lXHUwqVe1kkJ9zRgIHf1Mf9cU62Q0oaBdJWPq5T8+rc9YgCH0TfpXQfQKtP9kXnpvEdGPCt6X+XKUiOwZmUVw==","jyaGH9Cl9EEuc1TA1GPCLm7QsNeeNoZfIloidYNrIf0k9cUY4U+I6D4hX727EfPEkwsfyC8D8JRPo1jVK5/qPgQS7g==","3i+A7qgp37UM9d41aB1Iav6JHQABnv2Hd2m8KpOJXFbK6H1UFxjWBk1Jn4qOw0tZoDR9vlX3WN3mRKwkADyg16o8lA=="],["3a5bGeEtPtd5gy32nxM3l6AJEk+NibDHYAw8G+XzzsGKnCSUifQEkFfKI6debE9eHFkHu9amz8yF2V7+RAXTl71OJQ==","Q2Z9TpfD/PItPJmEqUOMKIwzFinzRZ8P/X6Y87tMli5ie6WcTyudPto1+3P5/JPtfMep61Ac0kO9uXZ1l0AcMHVLDw==","EsB+FAs4krqIBgcC0rDUvuaZa3M59CAYSQZhXQq56LIebkxWba5geFkqec94w8SsQnwO7O2XWGXolvzzrc+yx7ub3A=="],["WnfSRllivLrHmk4uDVY7egZM6UbV0Ljjz/43uQFgNuP/IJAZznxrAZD4bM8n/dI=","LAiu26pnF50a5GqJkNVfoRweRfTzBziYZ0k2rpKYptqbhPCp7yCirbNf1qAf1UY=","Nzzzyw1JQtfh8v4cKObadUNPK+prQ71u4SHQ1JJ9pyroZreVPMMSAxYvIe4Spwc=","YZd+6m2/yYRRANyEbPB4k8t9Osw5bTwIcQ/zZ2ZmWZnVi+LATsL3sXgBz34IBRc="]]}},"reset":"DBB1inYUiv3HejEi","salon":"rjm9kRsHX1VO5nQO"};
+</script>
+<script>
+(function () {
+  'use strict';
+
+  /* ================= Íconos (SVG en línea) ================= */
+  var ICON = {
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.6 7-12.2A7 7 0 0 0 5 9.8C5 15.4 12 22 12 22Z"/><circle cx="12" cy="9.8" r="2.6"/></svg>',
+    flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M5 22V3"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg>',
+    go: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h16"/><path d="m13 6 6 6-6 6"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5"/></svg>',
+    helmet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 17h18"/><path d="M5 17v-3a7 7 0 0 1 14 0v3"/><path d="M10 7.3V5h4v2.3"/><path d="M2 17.5c0 1 .8 1.5 2 1.5h16c1.2 0 2-.5 2-1.5"/></svg>',
+    qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/></svg>',
+    // Flecha en U: regresar al punto de partida
+    back: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M44 54V26a14 14 0 0 0-28 0v6"/><path d="m7 24 9 10 9-10"/><circle cx="44" cy="56" r="4" fill="currentColor" stroke="none"/></svg>',
+    trophy: '<svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" aria-hidden="true"><path d="M28 14h40v18a20 20 0 0 1-40 0V14Z" fill="currentColor" fill-opacity=".18"/><path d="M28 20H16v6a12 12 0 0 0 13 12"/><path d="M68 20h12v6a12 12 0 0 1-13 12"/><path d="M48 52v14"/><path d="M36 66h24l3 10H33l3-10Z"/><path d="M28 82h40"/><path d="m42 30 4 4 8-9" stroke-linecap="round"/></svg>'
+  };
+
+  var esc = function (s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+
+  /* ================= Estado y persistencia ================= */
+  // Fases del recorrido (siempre avanzan, nunca retroceden):
+  // home -> pick -> ready -> riddle -> go -> riddle -> ... -> back -> salon -> done
+  var KEY = 'cq-progreso-v2'; // v2: versión con QR (el formato del progreso cambió)
+  var S;
+
+  function fresh() {
+    return { phase: 'home', route: null, idx: 0, current: null, solved: [], lastEra: null, salonOk: false, t0: null, t1: null };
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var s = JSON.parse(raw); if (s && s.phase) return s; }
+    } catch (e) {}
+    return fresh();
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  }
+  S = load();
+
+  /* ================= Descifrado ================= */
+  function b64(s) {
+    var bin = atob(s), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  var dec = new TextDecoder();
+  // Prueba la clave contra cada bloque cifrado; si alguno empieza con el prefijo mágico, la respuesta era válida.
+  function tryOpen(blobs, key) {
+    for (var i = 0; i < blobs.length; i++) {
+      var txt = dec.decode(CQ.xorBytes(b64(blobs[i]), key));
+      if (txt.indexOf(CQ.MAGIC) === 0) {
+        try { return JSON.parse(txt.slice(CQ.MAGIC.length)); } catch (e) {}
+      }
+    }
+    return null;
+  }
+
+  /* ================= Componentes ================= */
+  // Barra de progreso: 4 bloques (estaciones) + bandera (salón). "pourIdx" anima el bloque recién superado.
+  function progress(pourIdx) {
+    var done = S.solved.length, h = '<div class="progress" role="img" aria-label="' + done + ' de 4 estaciones superadas">';
+    for (var i = 0; i < 4; i++) {
+      var cls = i < done ? 'done' : (i === done && (S.phase === 'riddle' || S.phase === 'go') ? 'now' : '');
+      if (i === pourIdx) cls += ' pour';
+      h += '<div class="blk ' + cls + '"><i>' + (i < done ? ICON.check.replace('<svg', '<svg width="20" height="20"') : (i + 1)) + '</i></div>';
+    }
+    var flagOn = S.phase === 'back' || S.phase === 'salon' || S.phase === 'done';
+    return h + '<div class="flag' + (flagOn ? ' on' : '') + '" title="Salón">' + ICON.flag + '</div></div>';
+  }
+  function status(right) {
+    return '<div class="status"><span class="chip">Grupo ' + S.route + '</span><span>' + right + '</span></div>';
+  }
+  function destCard(st, n) {
+    return '<div class="dest"><div class="loc">' + ICON.pin + '<h1>' + esc(st.ubicacion) + '</h1></div>' +
+      '<small>Estación ' + n + ' de 4</small></div>';
+  }
+
+  /* ================= Pantallas ================= */
+  var app = document.getElementById('app');
+  var V = {};
+
+  V.home = function () {
+    return '<section class="screen">' +
+      '<div class="hero-wrap"><div class="hero">' +
+        '<div class="bar a" aria-hidden="true"></div>' +
+        '<h1 class="wordmark" aria-label="Concrete Quest"><span>Concrete</span><span>Quest</span></h1>' +
+        '<p class="tagline">Un tesoro por descubrir.</p>' +
+        '<div class="bar b" aria-hidden="true"></div>' +
+      '</div></div>' +
+      '<p class="welcome">¡Bienvenidos a Concrete Quest! Prepárense para poner a prueba sus conocimientos de ingeniería civil, resolver acertijos y recorrer el campus en busca del tesoro. Cada respuesta correcta los acercará un paso más al objetivo. ¿Están listos para comenzar?</p>' +
+      '<button class="btn" data-act="start">' + ICON.helmet + 'COMENZAR AVENTURA</button>' +
+    '</section>';
+  };
+
+  var picked = null; // grupo marcado pero aún no confirmado (solo vive en memoria)
+  V.pick = function () {
+    var h = '<section class="screen"><h1>¿Qué grupo son?</h1>' +
+      '<p class="lead muted">Elijan el número que les asignaron. Cada grupo tiene su propia ruta de cuatro estaciones.</p>' +
+      '<div class="grid" role="group" aria-label="Grupos">';
+    for (var g = 1; g <= 4; g++) {
+      h += '<button class="grupo" data-act="mark" data-g="' + g + '" aria-pressed="' + (picked === g) + '"><b>' + g + '</b><span>Grupo ' + g + '</span></button>';
+    }
+    h += '</div>';
+    if (picked) {
+      h += '<div class="confirm"><p><strong>¿Son el Grupo ' + picked + '?</strong> Después de confirmar no se puede cambiar la ruta.</p>' +
+        '<button class="btn" data-act="confirm">CONFIRMAR GRUPO ' + picked + '</button></div>';
+    }
+    return h + '</section>';
+  };
+
+  V.ready = function () {
+    return '<section class="screen">' + status('Ruta lista') + progress() +
+      '<h1 style="margin-bottom:1rem">¡Ruta seleccionada!</h1>' +
+      '<p>La aventura está por comenzar. Diríjanse a su primera estación y resuelvan el acertijo para descubrir el siguiente destino.</p>' +
+      destCard(S.current, 1) +
+      '<p class="muted">En cada estación hay un QR de Concrete Quest. Escanéenlo para ver el acertijo.</p>' +
+      '<button class="btn" data-act="begin">' + ICON.go + 'INICIAR RECORRIDO</button></section>';
+  };
+
+  // Bloque de escaneo: botón principal + código manual de respaldo
+  function scanBlock(what) {
+    return '<button class="btn" data-act="scan">' + ICON.qr + 'ESCANEAR QR</button>' +
+      '<details class="manual"><summary>La cámara no funciona: escribir el código</summary>' +
+        '<form id="codeForm" novalidate><label class="field">Código impreso debajo del QR' +
+        '<input type="text" id="codeIn" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX"></label>' +
+        '<button class="btn btn-sec" type="submit">' + what + '</button></form>' +
+      '</details>';
+  }
+
+  V.riddle = function () {
+    var st = S.current;
+    return '<section class="screen">' + status('Estación ' + (S.idx + 1) + ' de 4') + progress() +
+      '<div class="loc">' + ICON.pin + '<h1>' + esc(st.ubicacion) + '</h1></div>' +
+      '<div class="board">' + (st.titulo ? '<h2>' + esc(st.titulo) + '</h2>' : '') +
+        '<p class="riddle">' + esc(st.acertijo) + '</p></div>' +
+      '<form id="ans" novalidate>' +
+        '<label class="field">Su respuesta<input type="text" id="ansIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></label>' +
+        '<p class="msg" id="ansMsg" role="alert"></p>' +
+        '<button class="btn" type="submit">COMPROBAR RESPUESTA</button>' +
+      '</form></section>';
+  };
+
+  // Camino a una estación: el acertijo solo se abre con el QR que está pegado allá
+  V.go = function () {
+    return '<section class="screen">' + status('Estación ' + (S.idx + 1) + ' de 4') +
+      progress(S.solved.length ? S.solved.length - 1 : undefined) +
+      (S.lastEra ? '<p class="ok">¡Correcto! Era: ' + esc(S.lastEra) + '.</p>' : '') +
+      '<p>' + (S.idx ? 'Su próximo destino es:' : 'Su primera estación es:') + '</p>' + destCard(S.current, S.idx + 1) +
+      '<p class="muted">Cuando lleguen, busquen el QR de Concrete Quest y escanéenlo para ver el acertijo.</p>' +
+      scanBlock('ABRIR ACERTIJO') + '</section>';
+  };
+
+  V.back = function () {
+    return '<section class="screen return">' + status('Regreso') + progress(3) +
+      '<p class="ok">¡Correcto! Era: ' + esc(S.lastEra) + '.</p>' +
+      ICON.back.replace('<svg', '<svg class="big-icon"') +
+      '<h1>¡EL ÚLTIMO PASO ESTÁ DONDE TODO COMENZÓ!</h1>' +
+      '<p>Han superado las cuatro estaciones, pero la aventura todavía no termina. El último destino es aquel lugar donde recibieron las instrucciones y comenzó esta búsqueda. ¡Regresen al salón!</p>' +
+      '<button class="btn" data-act="toSalon">' + ICON.go + '¡VAMOS AL PUNTO DE PARTIDA!</button></section>';
+  };
+
+  V.salon = function () {
+    return '<section class="screen">' + status('Rumbo al salón') + progress() +
+      '<div class="loc">' + ICON.flag + '<h1>El salón</h1></div>' +
+      (S.salonOk
+        ? '<p class="ok">QR del salón confirmado.</p><p>Ya pueden cerrar la misión.</p>' +
+          '<button class="btn" data-act="finish">FINALIZAR CONCRETE QUEST</button>'
+        : '<p>Vuelvan al salón donde empezó todo. Al llegar, pídanle al organizador el QR del salón y escanéenlo para cerrar la misión.</p>' +
+          scanBlock('CONFIRMAR LLEGADA')) +
+      '</section>';
+  };
+
+  function duration() {
+    if (!S.t0 || !S.t1) return '';
+    var m = Math.max(1, Math.round((S.t1 - S.t0) / 60000));
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+  }
+  V.done = function () {
+    var li = S.solved.map(function (s, i) {
+      return '<li>' + ICON.check + '<strong>' + esc(s.ubicacion) + '</strong><span>' + esc(s.era) + '</span></li>';
+    }).join('');
+    var t = duration();
+    return '<section class="screen final">' +
+      '<div class="trophy-wrap">' + ICON.trophy + '<div class="stamp">Concrete Quest completado</div></div>' +
+      '<h1>¡LO LOGRARON!</h1>' +
+      '<p>¡Felicitaciones por completar la misión y llegar hasta el final de Concrete Quest!</p>' +
+      '<span class="chip ruta">Ruta del Grupo ' + S.route + '</span>' +
+      progress() +
+      '<ul class="checks" aria-label="Estaciones superadas">' + li + '</ul>' +
+      (t ? '<p class="muted">Recorrido completado en ' + t + '.</p>' : '') +
+    '</section>';
+  };
+
+  // Aviso de un solo uso: se muestra arriba de la pantalla en el siguiente render y luego se borra
+  var notice = null;
+  function say(text, kind) { notice = { text: text, kind: kind || 'bad' }; render(); }
+
+  function render() {
+    var n = notice ? '<div class="notice ' + notice.kind + '" role="alert"><p>' + esc(notice.text) + '</p></div>' : '';
+    notice = null;
+    app.innerHTML = (V[S.phase] || V.home)().replace('<section class="screen">', '<section class="screen">' + n);
+    window.scrollTo(0, 0);
+    var ans = document.getElementById('ans');
+    if (ans) ans.addEventListener('submit', check);
+    var cf = document.getElementById('codeForm');
+    if (cf) cf.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var tok = CQ.tokenFromText(document.getElementById('codeIn').value);
+      if (!tok) { say('Escriban el código que aparece debajo del QR.'); return; }
+      handleToken(tok);
+    });
+  }
+
+  /* ================= QR ================= */
+  // Decide qué hacer con un código según la fase. Solo sirve el QR de la estación pendiente.
+  function handleToken(tok) {
+    var p = S.phase;
+    if (p === 'go' || p === 'ready') {
+      var res = tryOpen([DATA.rutas[S.route].qr[S.idx]], CQ.qrKey(tok, S.route, S.idx));
+      if (!res) { say('Este QR no es de su próxima estación. Su destino es: ' + S.current.ubicacion + '.'); return; }
+      if (!S.t0) S.t0 = Date.now(); // si escanean directo desde "Ruta seleccionada", el reloj arranca aquí
+      S.current = { ubicacion: S.current.ubicacion, titulo: res.titulo, acertijo: res.acertijo };
+      S.phase = 'riddle';
+      if (navigator.vibrate) navigator.vibrate(60);
+      save(); render();
+    } else if (p === 'riddle') {
+      // Re-escanear el QR de la estación actual no hace nada; cualquier otro es un error
+      if (!tryOpen([DATA.rutas[S.route].qr[S.idx]], CQ.qrKey(tok, S.route, S.idx)))
+        say('Este QR no es de esta estación. Resuelvan el acertijo de ' + S.current.ubicacion + '.');
+    } else if (p === 'back' || p === 'salon') {
+      if (!tryOpen([DATA.salon], CQ.qrKey(tok, 0, 9))) { say('Este no es el QR del salón. Pídanselo al organizador.'); return; }
+      S.phase = 'salon'; S.salonOk = true;
+      if (navigator.vibrate) navigator.vibrate(60);
+      save(); render();
+    } else if (p === 'home' || p === 'pick') {
+      // Típico: escanearon con la cámara del celular y se abrió OTRO navegador, sin su progreso
+      say('Este navegador no tiene un recorrido en curso. Si ya empezaron, vuelvan al navegador donde abrieron Concrete Quest y usen el botón ESCANEAR QR. Si no han empezado, presionen COMENZAR AVENTURA.', 'info');
+    }
+    // En "done" se ignora cualquier QR.
+  }
+
+  var scanning = null;
+  function openScanner() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof jsQR === 'undefined') {
+      say('No se pudo abrir la cámara en este navegador. Escriban el código impreso debajo del QR.');
+      openManual(); return;
+    }
+    var ov = document.createElement('div');
+    ov.className = 'scan';
+    ov.innerHTML = '<video playsinline muted autoplay></video><div class="visor" aria-hidden="true"></div>' +
+      '<div class="pie"><p>Apunten la cámara al QR de Concrete Quest</p>' +
+      '<button class="btn btn-sec" type="button">Cancelar</button></div>';
+    document.body.appendChild(ov);
+    var video = ov.querySelector('video');
+    var canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+    var stream = null, raf = 0, closed = false;
+
+    function close() {
+      if (closed) return; closed = true;
+      cancelAnimationFrame(raf);
+      if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); // apaga la cámara
+      ov.remove(); scanning = null;
+    }
+    scanning = close;
+    ov.querySelector('button').addEventListener('click', close);
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      .then(function (s) {
+        if (closed) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+        stream = s; video.srcObject = s; video.play();
+        loop();
+      })
+      .catch(function () {
+        close();
+        say('No hay permiso para usar la cámara. Denle permiso en el navegador o escriban el código impreso debajo del QR.');
+        openManual();
+      });
+
+    // Cada cuadro: se copia el video a un canvas pequeño (máx. 640 px, más rápido) y jsQR busca un código
+    function loop() {
+      if (closed) return;
+      if (video.readyState >= 2 && video.videoWidth) {
+        var w = Math.min(640, video.videoWidth), h = Math.round(video.videoHeight * w / video.videoWidth);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(video, 0, 0, w, h);
+        var code = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+        if (code && code.data) {
+          var tok = CQ.tokenFromText(code.data);
+          close();
+          handleToken(tok);
+          return;
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    }
+  }
+  function openManual() {
+    var d = document.querySelector('.manual');
+    if (d) { d.open = true; var i = document.getElementById('codeIn'); if (i) i.focus(); }
+  }
+
+  /* ================= Acciones ================= */
+  var busy = false;
+
+  function check(e) {
+    e.preventDefault();
+    if (busy) return;
+    var inp = document.getElementById('ansIn'), msg = document.getElementById('ansMsg');
+    var norm = CQ.normalize(inp.value);
+    inp.classList.remove('bad'); void inp.offsetWidth; // reinicia la animación de "sacudida"
+    if (!norm) { msg.className = 'msg bad'; msg.textContent = 'Escriban una respuesta antes de comprobar.'; inp.focus(); return; }
+
+    var res = tryOpen(DATA.rutas[S.route].locks[S.idx], CQ.keyFor(norm, S.route, S.idx));
+    if (!res) {
+      inp.classList.add('bad');
+      msg.className = 'msg bad';
+      msg.textContent = '¡Ups! Esa no es la respuesta correcta. Inténtenlo nuevamente';
+      return;
+    }
+
+    // Correcta: se guarda el avance ANTES de la animación, así un refresh a mitad no pierde nada.
+    busy = true;
+    inp.blur();
+    S.solved.push({ ubicacion: S.current.ubicacion, era: res.era });
+    S.lastEra = res.era;
+    if (res.sig) { S.idx += 1; S.current = { ubicacion: res.sig.ubicacion }; S.phase = 'go'; }
+    else { S.current = null; S.phase = 'back'; }
+    save();
+    celebrate();
+  }
+
+  function celebrate() {
+    var ov = document.createElement('div');
+    ov.className = 'overlay';
+    ov.innerHTML = '<div class="stamp">¡Correcto!</div>';
+    document.body.appendChild(ov);
+    var closed = false;
+    var close = function () { if (closed) return; closed = true; ov.remove(); busy = false; render(); };
+    ov.addEventListener('click', close);
+    setTimeout(close, 1400);
+  }
+
+  var actions = {
+    start: function () { S.phase = 'pick'; render(); },
+    mark: function (el) { picked = +el.getAttribute('data-g'); render(); var c = document.querySelector('.confirm .btn'); if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); },
+    confirm: function () {
+      if (!picked || S.route) return;
+      S.route = picked; S.idx = 0; S.current = { ubicacion: DATA.rutas[picked].primera }; S.phase = 'ready';
+      save(); render();
+    },
+    begin: function () { S.t0 = Date.now(); S.phase = 'go'; save(); render(); },
+    scan: function () { openScanner(); },
+    toSalon: function () { S.phase = 'salon'; save(); render(); },
+    finish: function () { S.t1 = Date.now(); S.phase = 'done'; save(); render(); confetti(); }
+  };
+  app.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]');
+    if (el && actions[el.getAttribute('data-act')]) actions[el.getAttribute('data-act')](el);
+  });
+
+  /* ================= Confeti de concreto ================= */
+  function confetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var c = document.createElement('canvas'); c.id = 'confeti'; document.body.appendChild(c);
+    var x = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = c.width = innerWidth * dpr, H = c.height = innerHeight * dpr;
+    var cols = ['#FFC20E', '#FFC20E', '#F3F2EE', '#B4B6B1', '#000000'];
+    var P = [];
+    for (var i = 0; i < 140; i++) P.push({
+      x: Math.random() * W, y: -Math.random() * H * .6,
+      w: (6 + Math.random() * 10) * dpr, h: (4 + Math.random() * 8) * dpr,
+      vy: (2 + Math.random() * 3.5) * dpr, vx: (Math.random() - .5) * 2 * dpr,
+      r: Math.random() * 6, vr: (Math.random() - .5) * .25, c: cols[i % cols.length]
+    });
+    var t0 = performance.now();
+    (function frame(t) {
+      x.clearRect(0, 0, W, H);
+      var alive = t - t0 < 4200;
+      P.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c;
+        x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore();
+      });
+      if (alive) requestAnimationFrame(frame); else c.remove();
+    })(t0);
+  }
+
+  /* ================= Reinicio de organizador ================= */
+  // Mantener presionado "Semana del Concreto" 2,5 s abre un diálogo que pide el código.
+  // Sirve si un grupo eligió mal la ruta o si se reutiliza el celular. No hay botón visible.
+  var org = document.getElementById('org'), dlg = document.getElementById('dlg'), timer;
+  org.addEventListener('pointerdown', function () { timer = setTimeout(function () {
+    document.getElementById('dlgMsg').textContent = '';
+    document.getElementById('dlgCode').value = '';
+    if (dlg.showModal) dlg.showModal();
+  }, 2500); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { org.addEventListener(ev, function () { clearTimeout(timer); }); });
+  org.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.getElementById('dlgClose').addEventListener('click', function () { dlg.close(); });
+  document.getElementById('dlgForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var k = CQ.keyFor(CQ.normalize(document.getElementById('dlgCode').value), 0, 0);
+    if (tryOpen([DATA.reset], k)) {
+      try { localStorage.removeItem(KEY); } catch (err) {}
+      S = fresh(); picked = null; dlg.close(); render();
+    } else {
+      document.getElementById('dlgMsg').textContent = 'Código incorrecto.';
+    }
+  });
+
+  // ¿Se abrió la página desde un QR con la cámara del celular? (URL con #e=CODIGO)
+  // Se lee el código y se borra de la barra de direcciones para que no quede a la vista ni se re-aplique al recargar.
+  function tokenFromHash() {
+    var m = location.hash.match(/[#&]e=([A-Za-z0-9-]+)/);
+    if (!m) return null;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    return CQ.cleanToken(m[1]);
+  }
+  var linkTok = tokenFromHash();
+  // Si el navegador reutiliza esta pestaña y solo cambia el #, no hay recarga: se atiende aquí
+  window.addEventListener('hashchange', function () {
+    var t = tokenFromHash();
+    if (t) { if (scanning) scanning(); handleToken(t); }
+  });
+
+  render();
+  if (linkTok) handleToken(linkTok);
+  if (S.phase === 'done') confetti();
+})();
+</script>
+</body>
+</html>
